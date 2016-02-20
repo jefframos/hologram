@@ -12,7 +12,7 @@ var Application = AbstractApplication.extend({
         this.socket = new FirebaseSocket(firebaseURL +'12221');
         this.socket.build();
         //this.socket.bind(SmartSocket.READ_SOCKET_SNAPSHOT, this.readSnapshot);
-        //this.socket.bind(SmartSocket.READ_LAST, this.readlast);
+        this.socket.bind(SmartSocket.READ_LAST, this.readlast);
         this.socket.bind(SmartSocket.READ_OBJ, this.readObj);
         this.socket.bind(SmartSocket.WRITE_OBJ, this.writeObj);
         this.socket.bind(SmartSocket.SET_OBJ, this.setObj);
@@ -25,6 +25,9 @@ var Application = AbstractApplication.extend({
     },
     readObj:function(obj){
         console.log('readObj', obj.socket);
+        if(obj.socket.action){
+            APP.gameScreen.changeColor(obj.socket.message.value);
+        }
     },
     writeObj:function(obj){
         console.log('writeObj', obj);
@@ -52,9 +55,11 @@ var Application = AbstractApplication.extend({
                 mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
                 mc.get('pinch').set({ enable: true });
 
-                mc.on('pan swipe pinch tap doubletap press', function(ev) {
+                // mc.on('pan swipe pinch tap doubletap press', function(ev) {
+                mc.on('tap', function(ev) {
                     APP.socket.updateObj({socket:{
-                        message: {pos:ev.center},
+                        message: {pos:ev.center, value:"TE AMO =)"},
+                        action: true,
                         type: ev.type,
                         id: self.id
                     }});
@@ -62,11 +67,113 @@ var Application = AbstractApplication.extend({
             });
         }else{
             this.socket.updateObj({userDesktop:{isMobile:this.isMobile,id:this.id}});
+            this.stage.setBackgroundColor(0x000000);
+            this.gameScreen = new GameScreen('Game');
+            this.screenManager.addScreen(this.gameScreen);
+
+            this.screenManager.change('Game');
         }
 	},
     destroy:function(){
     }
 });
+/*jshint undef:false */
+var MobileApp = SmartObject.extend({
+	init:function(){
+        this._super();
+	},
+    show:function(){
+    },
+    hide:function(){
+    },
+	build:function(){
+	},
+    destroy:function(){
+    }
+});
+/*jshint undef:false */
+var GameScreen = AbstractScreen.extend({
+    init: function (label) {
+        this._super(label);
+        this.gameContainer = new PIXI.DisplayObjectContainer();
+        
+        this.build();
+    },
+    destroy: function () {
+        this._super();
+    },
+    build: function () {
+    	console.log(this);
+
+    	this.addChild(this.gameContainer);
+
+    	this.middleSquare = new PIXI.Graphics();
+    	this.middleSquare.beginFill(0xff00ff);
+        this.middleSquare.drawRect(0,0,80,80);
+		this.middleSquare.position.x = windowWidth / 2;
+		this.middleSquare.position.y = windowHeight / 2;
+		this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2}
+
+        this.gameContainer.addChild(this.middleSquare);
+
+    	this.crossLine1 = new PIXI.Graphics();
+        this.crossLine1.lineStyle(2,0xff00ff);
+        this.crossLine1.moveTo(0,0);
+        this.crossLine1.lineTo(0,windowHeight * 2);
+        this.crossLine1.position.x = windowWidth / 2;
+        this.crossLine1.position.y = windowHeight / 2;
+        this.crossLine1.pivot = {x:  this.crossLine1.width /2,y:  this.crossLine1.height /2}
+        this.crossLine1.rotation = 45 * 3.14 / 180;
+
+
+
+        this.crossLine2 = new PIXI.Graphics();
+        this.crossLine2.lineStyle(2,0xff00ff);
+        this.crossLine2.moveTo(0,0);
+        this.crossLine2.lineTo(0,windowHeight * 2);
+        this.crossLine2.position.x = windowWidth / 2;
+        this.crossLine2.position.y = windowHeight / 2;
+        this.crossLine2.pivot = {x:  this.crossLine2.width /2,y:  this.crossLine2.height /2}
+        this.crossLine2.rotation = -45 * 3.14 / 180;
+
+
+        this.gameContainer.addChild(this.crossLine1);
+        this.gameContainer.addChild(this.crossLine2);
+
+
+        this.circle1 = new PIXI.Graphics();
+    	this.circle1.beginFill(0xff0000);
+        this.circle1.drawCircle(80,80, 80);
+		this.circle1.position.x = windowWidth / 2;
+		this.circle1.position.y = windowHeight / 4 - 40;
+		this.circle1.pivot = {x:  this.circle1.width /2,y:  this.circle1.height /2}
+
+        this.gameContainer.addChild(this.circle1);
+    },
+    changeColor: function (label) {
+
+    	this.gameContainer.removeChild(this.circle1);
+    	this.circle1 = new PIXI.Graphics();
+    	this.circle1.beginFill(0x0000ff);
+        this.circle1.drawCircle(80,80, 80);
+		this.circle1.position.x = windowWidth / 2;
+		this.circle1.position.y = windowHeight / 4 - 40;
+		this.circle1.pivot = {x:  this.circle1.width /2,y:  this.circle1.height /2}
+
+        this.gameContainer.addChild(this.circle1);
+
+        returnButtonLabel = new PIXI.Text(label, {font:"90px", fill:"white"});
+returnButtonLabel.scale.x = -4
+returnButtonLabel.scale.y = 4;
+        this.gameContainer.addChild(returnButtonLabel);
+
+        returnButtonLabel.position.x = windowWidth / 2 - returnButtonLabel.width /2;
+		returnButtonLabel.position.y = windowHeight / 4 - 40 - returnButtonLabel.height /2;
+
+    },
+    update: function () {
+    }
+})
 /*jshint undef:false */
 var FirebaseSocket = SmartSocket.extend({
     init:function(url){
@@ -110,20 +217,6 @@ var FirebaseSocket = SmartSocket.extend({
         this._super(obj);
         this.dataRef.update(obj);
     },
-    destroy:function(){
-    }
-});
-/*jshint undef:false */
-var MobileApp = SmartObject.extend({
-	init:function(){
-        this._super();
-	},
-    show:function(){
-    },
-    hide:function(){
-    },
-	build:function(){
-	},
     destroy:function(){
     }
 });
