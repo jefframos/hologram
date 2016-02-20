@@ -69,7 +69,7 @@ var GameScreen = AbstractScreen.extend({
 
         this.gameContainer.addChild(this.circle1);
 
-        returnButtonLabel = new PIXI.Text(label, {font:"90px", fill:"white"});
+        returnButtonLabel = new PIXI.Text(label, {font:"90px arial", fill:"white"});
 returnButtonLabel.scale.x = -4
 returnButtonLabel.scale.y = 4;
         this.gameContainer.addChild(returnButtonLabel);
