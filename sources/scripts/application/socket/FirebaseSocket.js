@@ -4,13 +4,13 @@ var FirebaseSocket = SmartSocket.extend({
         this._super();
         //instancia o firebase
         this.dataRef = new Firebase(url);
-        this.dataRef.limit(1);
+        this.dataRef.limitToLast(1);
     },
     build:function(){
         var self = this;
 
 
-        this.lastMessagesQuery = this.dataRef.endAt().limit(2);
+        this.lastMessagesQuery = this.dataRef.endAt().limitToLast(2);
         this.lastMessagesQuery.on('child_added', function (snapshot) {
             self.readLast(snapshot.val());
         }, function (errorObject) {
@@ -28,6 +28,10 @@ var FirebaseSocket = SmartSocket.extend({
         }, function (errorObject) {
             self.socketError(errorObject);
         });
+
+        // mySessionRef.onDisconnect().update({ endedAt: Firebase.ServerValue.TIMESTAMP });
+        // mySessionRef.update({ startedAt: Firebase.ServerValue.TIMESTAMP });
+
     },
     writeObj:function(obj){
         this._super(obj);

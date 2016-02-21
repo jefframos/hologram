@@ -3,8 +3,16 @@ var Application = AbstractApplication.extend({
 	init:function(firebaseURL){
         this._super(windowWidth, windowHeight);
         this.stage.setBackgroundColor(0xffffff);
-        this.stage.removeChild(this.loadText);
-        this.isMobile = isMobile;
+        //this.stage.removeChild(this.loadText);
+
+
+
+        this.loadText = new PIXI.Text("label", {font:"50px arial", fill:"black"});
+    
+        this.stage.addChild(this.loadText);
+
+
+
         this.appContainer = document.getElementById('rect');
         this.id = parseInt(Math.random() * 100000000000);
 
@@ -12,28 +20,150 @@ var Application = AbstractApplication.extend({
         this.socket = new FirebaseSocket(firebaseURL +'12221');
         this.socket.build();
         //this.socket.bind(SmartSocket.READ_SOCKET_SNAPSHOT, this.readSnapshot);
-        this.socket.bind(SmartSocket.READ_LAST, this.readlast);
+        //this.socket.bind(SmartSocket.READ_LAST, this.readlast);
         this.socket.bind(SmartSocket.READ_OBJ, this.readObj);
         this.socket.bind(SmartSocket.WRITE_OBJ, this.writeObj);
         this.socket.bind(SmartSocket.SET_OBJ, this.setObj);
+
+        this.date = new Date();
+        this.stepTime = Firebase.ServerValue.TIMESTAMP;
+
+        this.users = [];
+
+        this.counter = 0;
+
+
+        this.colorList = [0xFF0000, 0x00FF00,0x0000FF,0xFFFFFF]
+
+        this.teams = "";
+
 	},
+    deviceLeft:function(){
+
+        APP.stepTime = Firebase.ServerValue.TIMESTAMP;
+        APP.socket.updateObj({
+            timeStamp:Firebase.ServerValue.TIMESTAMP,
+            action:
+            {
+                message: {pos:ev.center, value:"TE AMO "},
+                type:"REMOVE_USER",
+                stepTime: APP.stepTime,
+                type: ev.type,
+                id: APP.id
+            }
+        });
+
+    },
     readlast:function(obj){
-        console.log('readlast', obj);
+        //console.log('readlast', obj);
     },
     readSnapshot:function(obj){
-        console.log('readSnapshot', obj);
+        //console.log('readSnapshot', obj);
     },
-    readObj:function(obj){
-        console.log('readObj', obj.socket);
-        if(obj.socket.action){
-            APP.gameScreen.changeColor(obj.socket.message.value);
+    updateUser:function(id, time){
+        //console.log("UPDATE USER ");
+        // obj.action.id, Firebase.ServerValue.TIMESTAMP
+        for (var i = APP.users.length - 1; i >= 0; i--) {
+            if(id == APP.users[i].id)
+            {
+                APP.users[i].stepTime = time;
+            }
+        };
+    },
+    addUser:function(obj){
+        //console.log("ADDED USER ");
+        APP.teams += obj.action.message.team;
+        APP.users.push({
+            id:obj.action.id,
+            team:obj.action.message.team,
+            startedTime: obj.action.startedTime,
+            stepTime: Firebase.ServerValue.TIMESTAMP
+        });
+
+         
+
+        if(obj.application.teams != APP.teams){
+            APP.socket.updateObj({
+                action:{
+                    type:"UPDATE_TEAMS"
+                },
+                application:{
+                    teams: APP.teams
+                },
+                timeStamp:Firebase.ServerValue.TIMESTAMP
+            });
         }
     },
+    getUser:function(id){
+        //// console.log("GET USER");
+        for (var i = APP.users.length - 1; i >= 0; i--) {
+            if(id == APP.users[i].id)
+            {
+                
+                return APP.users[i];
+            }
+        };
+    },
+    act:function(obj){
+        APP.users.push(obj);
+    },
+    readObj:function(obj){
+        //console.log('readObj', obj);
+        
+        if(!obj){
+            return;
+        }
+        //// console.log(obj.application.startedTime > obj.timeStamp);
+        //console.log(obj.application.startedTime , obj.timeStamp);
+        if(obj.application.startedTime >= obj.timeStamp){
+            //console.log('startedTime da aplicacao esta maior que o usuario');
+            return;
+        }
+
+
+        //console.log(obj.action.type);
+
+        switch(obj.action.type) {
+            case "JUMP":
+                    //console.log(APP.getUser(obj.action.id).team);
+                    APP.gameScreen.jump(APP.getUser(obj.action.id).team);
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "NEW_USER":
+                    contains = false;
+                    for (var i = APP.users.length - 1; i >= 0; i--) {
+                        if(APP.users[i].id == obj.action.id){
+                            contains = true;
+                            break;
+                        }
+                    };
+                    if(!contains){
+                        APP.addUser(obj);
+                    }                   
+                    //init users
+                    APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "SEND_MESSAGE":
+                    tempUser = APP.getUser(obj.action.id);
+                    if(tempUser){
+                        //console.log('SEND_MESSAGE');
+                        APP.updateUser(obj.action.id, Firebase.ServerValue.TIMESTAMP);
+                        APP.gameScreen.changeColor(obj.action.message.value+(APP.counter++));
+                    }else{
+                        //console.log("SEM USER");
+                    }                
+                break;
+            default:
+                //console.log('nao é ação');
+        }
+
+    },
     writeObj:function(obj){
-        console.log('writeObj', obj);
+        //console.log('writeObj', obj);
     },
     setObj:function(obj){
-        console.log('setObj', obj);
+        //console.log('setObj', obj);
     },
     show:function(){
     },
@@ -41,32 +171,25 @@ var Application = AbstractApplication.extend({
     },
 	build:function(){
         var self = this;
-        if(this.isMobile){        // if(true){
+        if(isMobile){ 
+            this.startedTime = this.stepTime = Firebase.ServerValue.TIMESTAMP;
 
-            this.socket.updateObj({userMobile:{isMobile:this.isMobile,id:this.id}});
+            this.stage.setBackgroundColor(0x000000);
+            this.mobileLobby = new MobileLobby('MobileLobby');
+            this.mobileController = new MobileController('MobileController');
+            this.screenManager.addScreen(this.mobileLobby);
+            this.screenManager.addScreen(this.mobileController);
+            this.screenManager.change('MobileLobby');
 
-            var touchActions = ['auto', 'pan-y', 'pan-x', 'pan-x pan-y', 'none'];
-            Hammer.each(touchActions, function(touchAction) {
-                var el = renderer.view;
-
-                var mc = new Hammer(el, {
-                    touchAction: touchAction
-                });
-                mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
-                mc.get('pinch').set({ enable: true });
-
-                // mc.on('pan swipe pinch tap doubletap press', function(ev) {
-                mc.on('tap', function(ev) {
-                    APP.socket.updateObj({socket:{
-                        message: {pos:ev.center, value:"TE AMO =)"},
-                        action: true,
-                        type: ev.type,
-                        id: self.id
-                    }});
-                });
-            });
         }else{
-            this.socket.updateObj({userDesktop:{isMobile:this.isMobile,id:this.id}});
+            this.startedTime = this.stepTime = Firebase.ServerValue.TIMESTAMP;
+            this.socket.updateObj({application:{
+                id:this.id,
+                startedTime:this.startedTime,
+                stepTime:this.stepTime},
+                timeStamp:Firebase.ServerValue.TIMESTAMP
+            });
+
             this.stage.setBackgroundColor(0x000000);
             this.gameScreen = new GameScreen('Game');
             this.screenManager.addScreen(this.gameScreen);
@@ -77,6 +200,106 @@ var Application = AbstractApplication.extend({
     destroy:function(){
     }
 });
+/*jshint undef:false */
+var MiddleSquare = Class.extend({
+
+	init: function () {
+        this.container = new PIXI.DisplayObjectContainer();
+    },
+    build: function(size){
+
+		this.middleSquare = new PIXI.Graphics();
+    	this.middleSquare.lineStyle(1,0xff00ff);
+        this.middleSquare.drawRect(0,0,size.width,size.height);
+		
+		this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2};
+
+		this.container.addChild(this.middleSquare);
+
+
+		// this.returnButtonLabel = new PIXI.Text("2", {font:"30px arial", fill:"white"});
+    
+  //       this.container.addChild(this.returnButtonLabel);
+
+  //       this.returnButtonLabel.scale.x =-1;
+
+  //       this.returnButtonLabel.position.x = -this.returnButtonLabel.width /2;
+		// this.returnButtonLabel.position.y = this.middleSquare.height/2 - this.returnButtonLabel.height// - this.returnButtonLabel.height /2;
+    }
+})
+/*jshint undef:false */
+var GameView = Class.extend({
+
+	init: function () {
+        this.container = new PIXI.DisplayObjectContainer();
+        
+    },
+    build: function(color){
+
+		maskTopPos = {
+            x: windowWidth / 2 - windowHeight / 2,// - this.container.position.x,
+            y:0,//- this.container.position.y
+        };
+        maskTop = new PIXI.Graphics();
+        maskTop.beginFill(0xff00ff);
+
+        maskTop.moveTo(0,0);
+        maskTop.lineTo(-windowHeight/2,-windowHeight/2);
+        maskTop.lineTo(windowHeight/2, -windowHeight/2);
+        maskTop.lineTo(0,0);
+
+
+        maskTop.endFill();
+        this.container.addChild(maskTop);
+        this.container.mask = maskTop;
+
+        this.player = new PIXI.Graphics();
+        this.player.beginFill(color);
+        this.player.drawCircle(0,0, 50);
+        this.player.position.y = -100;
+        this.container.addChild(this.player);
+
+        this.velocity = {x:0,y:0}
+        this.gravity = 0.8;
+        this.gravityInverse = -2;
+
+        this.readyToStart = false;
+        this.base = {x:0,y:-150}
+    },
+    initTeam:function(){
+    	console.log(this);
+    	this.updateable = true;
+    },
+    jump:function(){
+    	this.velocity.y = -10;
+    },
+    update:function(){
+    	if(!this.updateable){
+    		return;
+    	}
+
+    	this.player.position.x += this.velocity.x;
+    	this.player.position.y += this.velocity.y;
+		if(this.player.position.y < this.base.y){
+			this.velocity.y += this.gravity;
+		}else{
+			this.velocity.y = 0;
+			this.player.position.y = this.base.y;
+		}
+    	
+		console.log(this.velocity.y);
+    	if(!this.readyToStart){
+	    	if(this.player.position.y > this.base.y){
+	    		this.velocity.y += this.gravityInverse;
+	    	}else{
+	    		this.velocity.y = 0;
+	    		this.readyToStart = true;
+	    		console.log(this.readyToStart);
+	    	}
+	    }
+    	
+    }
+})
 /*jshint undef:false */
 var MobileApp = SmartObject.extend({
 	init:function(){
@@ -92,32 +315,65 @@ var MobileApp = SmartObject.extend({
     }
 });
 /*jshint undef:false */
+function degressToRad(deg){
+    return deg / 180 * Math.PI;
+}
+function radToDegrees(rad){
+    return deg * 180 / Math.PI;
+}
 var GameScreen = AbstractScreen.extend({
     init: function (label) {
         this._super(label);
         this.gameContainer = new PIXI.DisplayObjectContainer();
+        this.topGame = new GameView();
+        this.rightGame = new GameView();
+        this.bottomGame = new GameView();
+        this.leftGame = new GameView();
         
-        this.build();
+        this.gameViewList = [this.topGame,this.rightGame,this.bottomGame,this.leftGame]
     },
     destroy: function () {
         this._super();
     },
     build: function () {
-    	console.log(this);
 
-    	this.addChild(this.gameContainer);
+        this.addChild(this.gameContainer);
 
-    	this.middleSquare = new PIXI.Graphics();
-    	this.middleSquare.beginFill(0xff00ff);
-        this.middleSquare.drawRect(0,0,80,80);
-		this.middleSquare.position.x = windowWidth / 2;
-		this.middleSquare.position.y = windowHeight / 2;
-		this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2}
+        this.topGame.build(APP.colorList[0]);
+        this.gameContainer.addChild(this.topGame.container);
+        this.topGame.container.position.x = windowWidth / 2;
+        this.topGame.container.position.y = windowHeight / 2;
+        // this.topGame.container.interactive = true;
 
-        this.gameContainer.addChild(this.middleSquare);
+        this.rightGame.build(APP.colorList[1]);
+        this.gameContainer.addChild(this.rightGame.container);
+        this.rightGame.container.position.x = windowWidth / 2;
+        this.rightGame.container.position.y = windowHeight / 2;
+        this.rightGame.container.rotation = degressToRad(90);
+
+        this.bottomGame.build(APP.colorList[2]);
+        this.gameContainer.addChild(this.bottomGame.container);
+        this.bottomGame.container.position.x = windowWidth / 2;
+        this.bottomGame.container.position.y = windowHeight / 2;
+        this.bottomGame.container.rotation = degressToRad(180);
+
+        this.leftGame.build(APP.colorList[3]);
+        this.gameContainer.addChild(this.leftGame.container);
+        this.leftGame.container.position.x = windowWidth / 2;
+        this.leftGame.container.position.y = windowHeight / 2;
+        this.leftGame.container.rotation = degressToRad(270);
+
+
+
+        this.middleSquare = new MiddleSquare();
+        this.middleSquare.build({width:120, height:120});
+    	this.middleSquare.container.position.x = windowWidth / 2;
+        this.middleSquare.container.position.y = windowHeight / 2;
+        this.gameContainer.addChild(this.middleSquare.container);
+
 
     	this.crossLine1 = new PIXI.Graphics();
-        this.crossLine1.lineStyle(2,0xff00ff);
+        this.crossLine1.lineStyle(1,0xff00ff);
         this.crossLine1.moveTo(0,0);
         this.crossLine1.lineTo(0,windowHeight * 2);
         this.crossLine1.position.x = windowWidth / 2;
@@ -126,9 +382,8 @@ var GameScreen = AbstractScreen.extend({
         this.crossLine1.rotation = 45 * 3.14 / 180;
 
 
-
         this.crossLine2 = new PIXI.Graphics();
-        this.crossLine2.lineStyle(2,0xff00ff);
+        this.crossLine2.lineStyle(1,0xff00ff);
         this.crossLine2.moveTo(0,0);
         this.crossLine2.lineTo(0,windowHeight * 2);
         this.crossLine2.position.x = windowWidth / 2;
@@ -140,36 +395,175 @@ var GameScreen = AbstractScreen.extend({
         this.gameContainer.addChild(this.crossLine1);
         this.gameContainer.addChild(this.crossLine2);
 
-
-        this.circle1 = new PIXI.Graphics();
-    	this.circle1.beginFill(0xff0000);
-        this.circle1.drawCircle(80,80, 80);
-		this.circle1.position.x = windowWidth / 2;
-		this.circle1.position.y = windowHeight / 4 - 40;
-		this.circle1.pivot = {x:  this.circle1.width /2,y:  this.circle1.height /2}
-
-        this.gameContainer.addChild(this.circle1);
+    },
+    jump: function (id) {
+        this.gameViewList[id].jump();
+    },
+    initTeam: function (id) {
+        console.log(id);
+        this.gameViewList[id].initTeam();
     },
     changeColor: function (label) {
 
-    	this.gameContainer.removeChild(this.circle1);
-    	this.circle1 = new PIXI.Graphics();
-    	this.circle1.beginFill(0x0000ff);
-        this.circle1.drawCircle(80,80, 80);
-		this.circle1.position.x = windowWidth / 2;
-		this.circle1.position.y = windowHeight / 4 - 40;
-		this.circle1.pivot = {x:  this.circle1.width /2,y:  this.circle1.height /2}
+        if(this.returnButtonLabel && this.returnButtonLabel.parent)
+        this.gameContainer.removeChild(this.returnButtonLabel);
 
-        this.gameContainer.addChild(this.circle1);
+        this.returnButtonLabel = new PIXI.Text(label, {font:"50px arial", fill:"white"});
+    
+        this.gameContainer.addChild(this.returnButtonLabel);
 
-        returnButtonLabel = new PIXI.Text(label, {font:"90px", fill:"white"});
-returnButtonLabel.scale.x = -4
-returnButtonLabel.scale.y = 4;
-        this.gameContainer.addChild(returnButtonLabel);
+        this.returnButtonLabel.scale.x =-1;
 
-        returnButtonLabel.position.x = windowWidth / 2 - returnButtonLabel.width /2;
-		returnButtonLabel.position.y = windowHeight / 4 - 40 - returnButtonLabel.height /2;
+        this.returnButtonLabel.position.x = windowWidth / 2 - this.returnButtonLabel.width /2;
+		this.returnButtonLabel.position.y = windowHeight / 4 - 40 - this.returnButtonLabel.height /2;
 
+    },
+    update: function () {
+        for (var i = this.gameViewList.length - 1; i >= 0; i--) {
+            this.gameViewList[i].update();
+        };
+        //this.circle1.position.x ++
+    }
+})
+/*jshint undef:false */
+var MobileController = AbstractScreen.extend({
+    init: function (label) {
+        this._super(label);
+        this.gameContainer = new PIXI.DisplayObjectContainer();
+        
+    },
+    destroy: function () {
+        this._super();
+    },
+    build: function () {
+
+        //alert(APP.colorList[APP.currentTeam]);
+    	var self = this;
+
+    	this.middleSquare = new PIXI.Graphics();
+        this.middleSquare.beginFill(APP.colorList[APP.currentTeam]);
+        this.middleSquare.drawCircle(0,0, 90);
+
+        //alert('=1');
+		
+		//this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2};
+		this.middleSquare.position.x = windowWidth / 2;
+		this.middleSquare.position.y = windowHeight / 2;
+        //alert('=2');
+		this.gameContainer.addChild(this.middleSquare);
+
+        //alert('=3');
+        this.middleSquare.interactive = true;
+        this.middleSquare.touchstart = this.middleSquare.mousedown = function(mouseData){
+            self.jump();
+        };
+        //alert('=4');
+
+        this.addChild(this.gameContainer)
+
+        //alert('=5');
+
+    },
+
+    jump: function () {
+    	APP.socket.updateObj({
+            timeStamp:Firebase.ServerValue.TIMESTAMP,
+            action:
+            {
+                message: {},
+                type:"JUMP",
+                id: APP.id
+            }
+        });
+    },
+    update: function () {
+    }
+})
+/*jshint undef:false */
+var MobileLobby = AbstractScreen.extend({
+    init: function (label) {
+        this._super(label);
+        this.gameContainer = new PIXI.DisplayObjectContainer();
+        this.topGame = new GameView();
+        this.rightGame = new GameView();
+        this.bottomGame = new GameView();
+        this.leftGame = new GameView();
+        
+        this.gameViewList = [this.topGame,this.rightGame,this.bottomGame,this.leftGame]
+        
+    },
+    destroy: function () {
+        this._super();
+    },
+    build: function () {
+
+    	var self = this;
+
+        this.addChild(this.gameContainer);
+
+        this.topGame.build(APP.colorList[0]);
+        this.gameContainer.addChild(this.topGame.container);
+        this.topGame.container.position.x = windowWidth / 2;
+        this.topGame.container.position.y = windowHeight / 2;
+
+		this.topGame.container.interactive = true;
+        this.topGame.container.touchstart = this.topGame.container.mousedown = function(mouseData){
+            self.choiceTeam(0);
+        };
+
+
+
+        this.rightGame.build(APP.colorList[1]);
+        this.gameContainer.addChild(this.rightGame.container);
+        this.rightGame.container.position.x = windowWidth / 2;
+        this.rightGame.container.position.y = windowHeight / 2;
+        this.rightGame.container.rotation = degressToRad(90);
+
+        this.rightGame.container.interactive = true;
+        this.rightGame.container.touchstart = this.rightGame.container.mousedown = function(mouseData){
+            self.choiceTeam(1);
+        };
+
+
+
+        this.bottomGame.build(APP.colorList[2]);
+        this.gameContainer.addChild(this.bottomGame.container);
+        this.bottomGame.container.position.x = windowWidth / 2;
+        this.bottomGame.container.position.y = windowHeight / 2;
+        this.bottomGame.container.rotation = degressToRad(180);
+
+        this.bottomGame.container.interactive = true;
+        this.bottomGame.container.touchstart = this.bottomGame.container.mousedown = function(mouseData){
+           self.choiceTeam(2);
+        };
+
+
+
+        this.leftGame.build(APP.colorList[3]);
+        this.gameContainer.addChild(this.leftGame.container);
+        this.leftGame.container.position.x = windowWidth / 2;
+        this.leftGame.container.position.y = windowHeight / 2;
+        this.leftGame.container.rotation = degressToRad(270);
+
+        this.leftGame.container.interactive = true;
+        this.leftGame.container.touchstart = this.leftGame.container.mousedown = function(mouseData){
+            self.choiceTeam(3);
+        };
+
+    },
+
+    choiceTeam: function (id) {
+    	APP.currentTeam = id;
+    	APP.socket.updateObj({
+            timeStamp:Firebase.ServerValue.TIMESTAMP,
+            action:
+            {
+                message: {team:id, value:"TE AMO "},
+                type:"NEW_USER",
+                id: APP.id
+            }
+        });
+        this.screenManager.change('MobileController');
     },
     update: function () {
     }
@@ -180,13 +574,13 @@ var FirebaseSocket = SmartSocket.extend({
         this._super();
         //instancia o firebase
         this.dataRef = new Firebase(url);
-        this.dataRef.limit(1);
+        this.dataRef.limitToLast(1);
     },
     build:function(){
         var self = this;
 
 
-        this.lastMessagesQuery = this.dataRef.endAt().limit(2);
+        this.lastMessagesQuery = this.dataRef.endAt().limitToLast(2);
         this.lastMessagesQuery.on('child_added', function (snapshot) {
             self.readLast(snapshot.val());
         }, function (errorObject) {
@@ -204,6 +598,10 @@ var FirebaseSocket = SmartSocket.extend({
         }, function (errorObject) {
             self.socketError(errorObject);
         });
+
+        // mySessionRef.onDisconnect().update({ endedAt: Firebase.ServerValue.TIMESTAMP });
+        // mySessionRef.update({ startedAt: Firebase.ServerValue.TIMESTAMP });
+
     },
     writeObj:function(obj){
         this._super(obj);
@@ -236,7 +634,12 @@ isMobile = false;
 // 	windowHeight = window.innerHeight;
 // 	windowWidth = window.innerWidth;
 // }
-
+function degressToRad(deg){
+    return deg / 180 * Math.PI;
+}
+function radToDegrees(rad){
+    return deg * 180 / Math.PI;
+}
 windowWidth = screen.width;
 windowHeight = screen.height;
 
@@ -254,9 +657,17 @@ var gameView = document.getElementById('game');
 var renderer = PIXI.autoDetectRecommendedRenderer(windowWidth, windowHeight, {antialias:true, view:gameView});
 
 
+
+
 var APP = new Application('https://holo.firebaseio.com/');
 APP.build();
 APP.show();
+
+
+gameView.addEventListener("blur", myBlurFunction, true);
+function myBlurFunction() {
+    APP.deviceLeft();
+}
 
 var first = true;
 function update() {

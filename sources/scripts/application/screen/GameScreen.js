@@ -1,30 +1,63 @@
 /*jshint undef:false */
+function degressToRad(deg){
+    return deg / 180 * Math.PI;
+}
+function radToDegrees(rad){
+    return deg * 180 / Math.PI;
+}
 var GameScreen = AbstractScreen.extend({
     init: function (label) {
         this._super(label);
         this.gameContainer = new PIXI.DisplayObjectContainer();
+        this.topGame = new GameView();
+        this.rightGame = new GameView();
+        this.bottomGame = new GameView();
+        this.leftGame = new GameView();
         
-        this.build();
+        this.gameViewList = [this.topGame,this.rightGame,this.bottomGame,this.leftGame]
     },
     destroy: function () {
         this._super();
     },
     build: function () {
-    	console.log(this);
 
-    	this.addChild(this.gameContainer);
+        this.addChild(this.gameContainer);
 
-    	this.middleSquare = new PIXI.Graphics();
-    	this.middleSquare.beginFill(0xff00ff);
-        this.middleSquare.drawRect(0,0,80,80);
-		this.middleSquare.position.x = windowWidth / 2;
-		this.middleSquare.position.y = windowHeight / 2;
-		this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2}
+        this.topGame.build(APP.colorList[0]);
+        this.gameContainer.addChild(this.topGame.container);
+        this.topGame.container.position.x = windowWidth / 2;
+        this.topGame.container.position.y = windowHeight / 2;
+        // this.topGame.container.interactive = true;
 
-        this.gameContainer.addChild(this.middleSquare);
+        this.rightGame.build(APP.colorList[1]);
+        this.gameContainer.addChild(this.rightGame.container);
+        this.rightGame.container.position.x = windowWidth / 2;
+        this.rightGame.container.position.y = windowHeight / 2;
+        this.rightGame.container.rotation = degressToRad(90);
+
+        this.bottomGame.build(APP.colorList[2]);
+        this.gameContainer.addChild(this.bottomGame.container);
+        this.bottomGame.container.position.x = windowWidth / 2;
+        this.bottomGame.container.position.y = windowHeight / 2;
+        this.bottomGame.container.rotation = degressToRad(180);
+
+        this.leftGame.build(APP.colorList[3]);
+        this.gameContainer.addChild(this.leftGame.container);
+        this.leftGame.container.position.x = windowWidth / 2;
+        this.leftGame.container.position.y = windowHeight / 2;
+        this.leftGame.container.rotation = degressToRad(270);
+
+
+
+        this.middleSquare = new MiddleSquare();
+        this.middleSquare.build({width:120, height:120});
+    	this.middleSquare.container.position.x = windowWidth / 2;
+        this.middleSquare.container.position.y = windowHeight / 2;
+        this.gameContainer.addChild(this.middleSquare.container);
+
 
     	this.crossLine1 = new PIXI.Graphics();
-        this.crossLine1.lineStyle(2,0xff00ff);
+        this.crossLine1.lineStyle(1,0xff00ff);
         this.crossLine1.moveTo(0,0);
         this.crossLine1.lineTo(0,windowHeight * 2);
         this.crossLine1.position.x = windowWidth / 2;
@@ -33,9 +66,8 @@ var GameScreen = AbstractScreen.extend({
         this.crossLine1.rotation = 45 * 3.14 / 180;
 
 
-
         this.crossLine2 = new PIXI.Graphics();
-        this.crossLine2.lineStyle(2,0xff00ff);
+        this.crossLine2.lineStyle(1,0xff00ff);
         this.crossLine2.moveTo(0,0);
         this.crossLine2.lineTo(0,windowHeight * 2);
         this.crossLine2.position.x = windowWidth / 2;
@@ -47,37 +79,33 @@ var GameScreen = AbstractScreen.extend({
         this.gameContainer.addChild(this.crossLine1);
         this.gameContainer.addChild(this.crossLine2);
 
-
-        this.circle1 = new PIXI.Graphics();
-    	this.circle1.beginFill(0xff0000);
-        this.circle1.drawCircle(80,80, 80);
-		this.circle1.position.x = windowWidth / 2;
-		this.circle1.position.y = windowHeight / 4 - 40;
-		this.circle1.pivot = {x:  this.circle1.width /2,y:  this.circle1.height /2}
-
-        this.gameContainer.addChild(this.circle1);
+    },
+    jump: function (id) {
+        this.gameViewList[id].jump();
+    },
+    initTeam: function (id) {
+        console.log(id);
+        this.gameViewList[id].initTeam();
     },
     changeColor: function (label) {
 
-    	this.gameContainer.removeChild(this.circle1);
-    	this.circle1 = new PIXI.Graphics();
-    	this.circle1.beginFill(0x0000ff);
-        this.circle1.drawCircle(80,80, 80);
-		this.circle1.position.x = windowWidth / 2;
-		this.circle1.position.y = windowHeight / 4 - 40;
-		this.circle1.pivot = {x:  this.circle1.width /2,y:  this.circle1.height /2}
+        if(this.returnButtonLabel && this.returnButtonLabel.parent)
+        this.gameContainer.removeChild(this.returnButtonLabel);
 
-        this.gameContainer.addChild(this.circle1);
+        this.returnButtonLabel = new PIXI.Text(label, {font:"50px arial", fill:"white"});
+    
+        this.gameContainer.addChild(this.returnButtonLabel);
 
-        returnButtonLabel = new PIXI.Text(label, {font:"90px arial", fill:"white"});
-returnButtonLabel.scale.x = -4
-returnButtonLabel.scale.y = 4;
-        this.gameContainer.addChild(returnButtonLabel);
+        this.returnButtonLabel.scale.x =-1;
 
-        returnButtonLabel.position.x = windowWidth / 2 - returnButtonLabel.width /2;
-		returnButtonLabel.position.y = windowHeight / 4 - 40 - returnButtonLabel.height /2;
+        this.returnButtonLabel.position.x = windowWidth / 2 - this.returnButtonLabel.width /2;
+		this.returnButtonLabel.position.y = windowHeight / 4 - 40 - this.returnButtonLabel.height /2;
 
     },
     update: function () {
+        for (var i = this.gameViewList.length - 1; i >= 0; i--) {
+            this.gameViewList[i].update();
+        };
+        //this.circle1.position.x ++
     }
 })

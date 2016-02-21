@@ -14,7 +14,12 @@ isMobile = false;
 // 	windowHeight = window.innerHeight;
 // 	windowWidth = window.innerWidth;
 // }
-
+function degressToRad(deg){
+    return deg / 180 * Math.PI;
+}
+function radToDegrees(rad){
+    return deg * 180 / Math.PI;
+}
 windowWidth = screen.width;
 windowHeight = screen.height;
 
@@ -32,9 +37,17 @@ var gameView = document.getElementById('game');
 var renderer = PIXI.autoDetectRecommendedRenderer(windowWidth, windowHeight, {antialias:true, view:gameView});
 
 
+
+
 var APP = new Application('https://holo.firebaseio.com/');
 APP.build();
 APP.show();
+
+
+gameView.addEventListener("blur", myBlurFunction, true);
+function myBlurFunction() {
+    APP.deviceLeft();
+}
 
 var first = true;
 function update() {
