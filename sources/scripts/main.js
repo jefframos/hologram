@@ -6,6 +6,13 @@ isMobile = false;
 	isMobile = true;
 
 
+
+if(window.location.hash) {
+	//alert("HASH")
+    isMobile = false;
+  // Fragment exists
+}
+
 // var windowWidth = 960,
 // windowHeight = 640;
 
