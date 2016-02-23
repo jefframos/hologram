@@ -3,13 +3,13 @@ var Application = AbstractApplication.extend({
 	init:function(firebaseURL){
         this._super(windowWidth, windowHeight);
         this.stage.setBackgroundColor(0xffffff);
-        //this.stage.removeChild(this.loadText);
+        this.stage.removeChild(this.loadText);
 
 
 
-        this.loadText = new PIXI.Text("label", {font:"50px arial", fill:"black"});
+        // this.loadText = new PIXI.Text("label", {font:"50px arial", fill:"black"});
     
-        this.stage.addChild(this.loadText);
+        // this.stage.addChild(this.loadText);
 
 
 
@@ -33,9 +33,14 @@ var Application = AbstractApplication.extend({
         this.counter = 0;
 
 
-        this.colorList = [0xFF0000, 0x00FF00,0x0000FF,0xFFFFFF]
+        this.colorList = [ 0x0000FF, 0xFF0000, 0x00FF00,0xFFFFFF]
 
         this.teams = "";
+        this.kills = 0
+        this.escapes = 0
+        this.miss = 0
+
+        this.maxEnemies = 20;
 
 	},
     deviceLeft:function(){
@@ -124,6 +129,45 @@ var Application = AbstractApplication.extend({
         //console.log(obj.action.type);
 
         switch(obj.action.type) {
+            // case "RESET":
+            //     // if(isMobile && obj.action.message.team == APP.currentTeam)
+            //     //     APP.miss ++;
+            //         //console.log(APP.getUser(obj.action.id).team);
+            //         //init users
+            //         //APP.gameScreen.initTeam(obj.action.message.team);
+            //     break;
+            case "MISS":
+                if(isMobile && obj.action.message.team == APP.currentTeam)
+                    APP.miss ++;
+                    //console.log(APP.getUser(obj.action.id).team);
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "END_GAME":
+                if(isMobile)
+                    APP.endGame = true;
+                    //console.log(APP.getUser(obj.action.id).team);
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "NEW_KILL":
+                if(isMobile && obj.action.message.team == APP.currentTeam){
+                    APP.kills ++;
+                    APP.counter --
+                }
+                    //console.log(APP.getUser(obj.action.id).team);
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "NEW_ESCAPE":
+                    //console.log(APP.getUser(obj.action.id).team);
+                if(isMobile && obj.action.message.team == APP.currentTeam){
+                    APP.escapes ++;
+                    APP.counter --
+                }
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
             case "JUMP":
                     //console.log(APP.getUser(obj.action.id).team);
                     APP.gameScreen.jump(APP.getUser(obj.action.id).team);
@@ -175,11 +219,15 @@ var Application = AbstractApplication.extend({
             this.startedTime = this.stepTime = Firebase.ServerValue.TIMESTAMP;
 
             this.stage.setBackgroundColor(0x000000);
+            APP.firstScreen = 'MobileLobby';
+
             this.mobileLobby = new MobileLobby('MobileLobby');
             this.mobileController = new MobileController('MobileController');
+            this.loaderScreen = new LoaderScreen('Loader');
             this.screenManager.addScreen(this.mobileLobby);
             this.screenManager.addScreen(this.mobileController);
-            this.screenManager.change('MobileLobby');
+            this.screenManager.addScreen(this.loaderScreen);
+            this.screenManager.change('Loader');
 
         }else{
             this.startedTime = this.stepTime = Firebase.ServerValue.TIMESTAMP;
@@ -189,16 +237,80 @@ var Application = AbstractApplication.extend({
                 stepTime:this.stepTime},
                 timeStamp:Firebase.ServerValue.TIMESTAMP
             });
+            APP.firstScreen = 'Game';
 
             this.stage.setBackgroundColor(0x000000);
             this.gameScreen = new GameScreen('Game');
+            this.loaderScreen = new LoaderScreen('Loader');
             this.screenManager.addScreen(this.gameScreen);
+            this.screenManager.addScreen(this.loaderScreen);
 
-            this.screenManager.change('Game');
+            this.screenManager.change('Loader');
         }
 	},
     destroy:function(){
     }
+});
+/*jshint undef:false */
+var InteractiveBackground = Class.extend({
+	init:function(){
+		//this._super( true );
+		this.container = new PIXI.DisplayObjectContainer();
+		this.vecDots = [];
+		this.gravity = 4;
+		this.accel = 0;
+	},
+	build: function(w,h){
+		this.dist = 80;
+		this.width = w;
+		this.height = h;
+		console.log(w,h);
+		var _w = this.width / this.dist;
+		var _h = this.height / this.dist;
+		for (var i = 0; i < _w; i++) {
+			for (var j = 0; j < _h; j++) {
+				if(Math.random() > 0.2){
+					var dot = new PIXI.Graphics();
+					dot.beginFill(0xFFFFFF);
+					dot.velocity = {x:0,y:0};
+					dot.velocity.y = 0.1 + Math.random() * 0.2;
+					dot.velocity.x = 0;
+					dot.drawRect(0,0,Math.ceil(2 *dot.velocity.y), Math.ceil(12 * dot.velocity.y));
+					dot.position.x = this.dist * i + (Math.random()*this.dist) / 2;
+					dot.position.y = this.dist * j + (Math.random()*this.dist) / 2;
+					this.container.addChild(dot);
+					dot.alpha = 0.5 * Math.random() + 0.3;
+					dot.side = Math.random() < 0.5 ? 1 : -1;
+					this.vecDots.push(dot);
+				}
+			}
+		}
+
+	},
+	getContent: function(){
+		return this.container;
+	},
+	update: function(){
+		for (var i = this.vecDots.length - 1; i >= 0; i--) {
+			this.vecDots[i].position.x += this.vecDots[i].velocity.x + this.accel;
+			this.vecDots[i].position.y += this.gravity//this.vecDots[i].velocity.y + this.gravity;
+			this.vecDots[i].alpha += 0.01 * this.vecDots[i].side;
+			if(this.vecDots[i].alpha <= 0 || this.vecDots[i].alpha >= 0.8){
+				// this.vecDots[i].alpha = 0.6 * Math.random() + 0.3;
+				this.vecDots[i].side *= -1;
+			}
+			if(this.vecDots[i].position.y > this.height + this.dist){
+				this.vecDots[i].position.y = 0;
+			}
+
+			// if(this.vecDots[i].position.x > this.width + this.dist){
+			// 	this.vecDots[i].position.x = 0;
+			// }else if(this.vecDots[i].position.x < 0){
+			// 	this.vecDots[i].position.x = windowWidth + this.dist;
+			// }
+		}
+		// this._super();
+	},
 });
 /*jshint undef:false */
 var MiddleSquare = Class.extend({
@@ -209,7 +321,7 @@ var MiddleSquare = Class.extend({
     build: function(size){
 
 		this.middleSquare = new PIXI.Graphics();
-    	this.middleSquare.lineStyle(1,0xff00ff);
+    	this.middleSquare.lineStyle(0.5,0x555555);
         this.middleSquare.drawRect(0,0,size.width,size.height);
 		
 		this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2};
@@ -232,11 +344,23 @@ var GameView = Class.extend({
 
 	init: function () {
         this.container = new PIXI.DisplayObjectContainer();
-        
+        this.container.interactive = true;
+        var self = this;
+        this.container.touchstart = this.container.mousedown = function(mouseData){
+            self.shoot();
+        };
     },
-    build: function(color){
+    build: function(id){
+        this.color = APP.colorList[id];
+        this.id = id;
 
-		maskTopPos = {
+        this.interactiveBackground = new InteractiveBackground();
+        this.interactiveBackground.build(windowHeight/2, windowHeight/2);
+        this.container.addChild(this.interactiveBackground.container);
+        this.interactiveBackground.container.position.x = -this.interactiveBackground.width / 2;
+        this.interactiveBackground.container.position.y = -this.interactiveBackground.height;
+        
+        maskTopPos = {
             x: windowWidth / 2 - windowHeight / 2,// - this.container.position.x,
             y:0,//- this.container.position.y
         };
@@ -248,36 +372,128 @@ var GameView = Class.extend({
         maskTop.lineTo(windowHeight/2, -windowHeight/2);
         maskTop.lineTo(0,0);
 
-
         maskTop.endFill();
         this.container.addChild(maskTop);
         this.container.mask = maskTop;
 
-        this.player = new PIXI.Graphics();
-        this.player.beginFill(color);
-        this.player.drawCircle(0,0, 50);
-        this.player.position.y = -100;
-        this.container.addChild(this.player);
+
+        // this.player = new PIXI.Graphics();
+        // this.player.beginFill(this.color);
+        // this.player.drawCircle(0,0, 50);
+        // this.player.position.y = -100;
+
 
         this.velocity = {x:0,y:0}
         this.gravity = 0.8;
         this.gravityInverse = -2;
 
         this.readyToStart = false;
+        this.started = false;
         this.base = {x:0,y:-150}
+
+        this.layerManager = new LayerManager();
+        this.bulletLayer = new Layer("Bullet");
+        this.entityLayer = new Layer("Entity");
+        this.layerManager.addLayer(this.bulletLayer);
+        this.layerManager.addLayer(this.entityLayer);
+
+        this.container.addChild(this.layerManager.getContent());
+        
+        this.playerImg = new SimpleSprite("img/plane"+(this.id+1)+".png");
+        this.playerImg.getContent().anchor = {x:0.5, y:0.5}
+        this.playerImg.getContent().scale = {x:0.75, y:0.75}
+        this.player = new PIXI.DisplayObjectContainer();
+        this.player.addChild(this.playerImg.getContent());
+        this.player.position.y = -80;
+        this.container.addChild(this.player);
+
+        this.enemyList = [];
+
+        // tempEnemy = new Enemy({x:-2,y:0}, 30, this.color, this.bulletLayer, 1)
+        // tempEnemy.build();
+        // tempEnemy.setPosition(this.player.position.x, -windowHeight/2 + 30);
+        // this.bulletLayer.addChild(tempEnemy);
+
+        this.minCounter = 50;
+        this.maxCounter = 150;
+
+        this.enemyAcc = 30;
+        APP.enemyCounter = 0;
+
+        APP.velEnemy = 1.5;
+    },
+    shoot:function(){
+        console.log(this.started);
+        if(!this.started){
+            this.initTeam();
+        }else{
+            tempBullet = new Bullet({x:0,y:-5}, 5, this.color, this.bulletLayer, this.id)
+
+            tempBullet.build();
+            tempBullet.setPosition(this.player.position.x,this.player.position.y);
+            this.bulletLayer.addChild(tempBullet);
+        }
     },
     initTeam:function(){
-    	console.log(this);
-    	this.updateable = true;
+    	
+        var self = this;
+        TweenLite.to(this.player.position, 0.4, {y:this.base.y, ease:"easeOutBack",onComplete:function(){
+            self.started = true;
+            self.updateable = true;
+        }});
     },
     jump:function(){
-    	this.velocity.y = -10;
+        this.shoot();
+    	//this.velocity.y = -10;
+    },
+    resetGame:function(){
+        var self = this;
+        self.updateable = false;
+        APP.enemyCounter = 0;
+        TweenLite.to(this.player.position, 0.4, {y:-80, ease:"easeOutBack",onComplete:function(){
+            self.started = false;
+        }});
+        for (var i = this.bulletLayer.childs.length - 1; i >= 0; i--) {
+            this.bulletLayer.childs[i].kill = true;
+            this.bulletLayer.childs[i].getContent().alpha = 0;
+        };
+        APP.socket.updateObj({
+            timeStamp:Firebase.ServerValue.TIMESTAMP,
+            action:
+            {
+                message: {team:self.id},
+                type:"RESET",
+            }
+        });
     },
     update:function(){
     	if(!this.updateable){
     		return;
     	}
 
+        this.enemyAcc --;
+        if(this.enemyAcc <= 0 && APP.enemyCounter < APP.maxEnemies){
+            this.minCounter = 50;
+            this.maxCounter = 150;
+            this.enemyAcc = Math.random()*(this.maxCounter - this.minCounter) + this.minCounter;
+
+            tempEnemy = new Enemy({x:-APP.velEnemy,y:0}, 20, this.color, this.bulletLayer, this.id)
+            tempEnemy.build();
+            tempEnemy.setPosition(windowHeight/2 + 30, -windowHeight/2 + 30);
+            this.bulletLayer.addChild(tempEnemy);
+        }else if( APP.enemyCounter >= APP.maxEnemies){
+            APP.socket.updateObj({
+                timeStamp:Firebase.ServerValue.TIMESTAMP,
+                action:
+                {
+                    message: {team:this.id},
+                    type:"END_GAME",
+                }
+            });
+            this.resetGame();
+        }
+        this.interactiveBackground.update();
+        this.layerManager.update();
     	this.player.position.x += this.velocity.x;
     	this.player.position.y += this.velocity.y;
 		if(this.player.position.y < this.base.y){
@@ -285,19 +501,8 @@ var GameView = Class.extend({
 		}else{
 			this.velocity.y = 0;
 			this.player.position.y = this.base.y;
-		}
-    	
-		console.log(this.velocity.y);
-    	if(!this.readyToStart){
-	    	if(this.player.position.y > this.base.y){
-	    		this.velocity.y += this.gravityInverse;
-	    	}else{
-	    		this.velocity.y = 0;
-	    		this.readyToStart = true;
-	    		console.log(this.readyToStart);
-	    	}
-	    }
-    	
+		}    	
+    	    	
     }
 })
 /*jshint undef:false */
@@ -339,25 +544,25 @@ var GameScreen = AbstractScreen.extend({
 
         this.addChild(this.gameContainer);
 
-        this.topGame.build(APP.colorList[0]);
+        this.topGame.build(0);
         this.gameContainer.addChild(this.topGame.container);
         this.topGame.container.position.x = windowWidth / 2;
         this.topGame.container.position.y = windowHeight / 2;
         // this.topGame.container.interactive = true;
 
-        this.rightGame.build(APP.colorList[1]);
+        this.rightGame.build(1);
         this.gameContainer.addChild(this.rightGame.container);
         this.rightGame.container.position.x = windowWidth / 2;
         this.rightGame.container.position.y = windowHeight / 2;
         this.rightGame.container.rotation = degressToRad(90);
 
-        this.bottomGame.build(APP.colorList[2]);
+        this.bottomGame.build(2);
         this.gameContainer.addChild(this.bottomGame.container);
         this.bottomGame.container.position.x = windowWidth / 2;
         this.bottomGame.container.position.y = windowHeight / 2;
         this.bottomGame.container.rotation = degressToRad(180);
 
-        this.leftGame.build(APP.colorList[3]);
+        this.leftGame.build(3);
         this.gameContainer.addChild(this.leftGame.container);
         this.leftGame.container.position.x = windowWidth / 2;
         this.leftGame.container.position.y = windowHeight / 2;
@@ -373,7 +578,7 @@ var GameScreen = AbstractScreen.extend({
 
 
     	this.crossLine1 = new PIXI.Graphics();
-        this.crossLine1.lineStyle(1,0xff00ff);
+        this.crossLine1.lineStyle(0.5,0x555555);
         this.crossLine1.moveTo(0,0);
         this.crossLine1.lineTo(0,windowHeight * 2);
         this.crossLine1.position.x = windowWidth / 2;
@@ -383,7 +588,7 @@ var GameScreen = AbstractScreen.extend({
 
 
         this.crossLine2 = new PIXI.Graphics();
-        this.crossLine2.lineStyle(1,0xff00ff);
+        this.crossLine2.lineStyle(0.5,0x555555);
         this.crossLine2.moveTo(0,0);
         this.crossLine2.lineTo(0,windowHeight * 2);
         this.crossLine2.position.x = windowWidth / 2;
@@ -395,6 +600,7 @@ var GameScreen = AbstractScreen.extend({
         this.gameContainer.addChild(this.crossLine1);
         this.gameContainer.addChild(this.crossLine2);
 
+        
     },
     jump: function (id) {
         this.gameViewList[id].jump();
@@ -426,10 +632,60 @@ var GameScreen = AbstractScreen.extend({
     }
 })
 /*jshint undef:false */
+var LoaderScreen = AbstractScreen.extend({
+    init: function (label) {
+        this._super(label);
+
+    },
+    destroy: function () {
+        this._super();
+    },
+    build: function () {
+        this._super();
+        
+
+        var self = this;
+
+        
+
+        var assetsToLoader = [
+        "img/plane1.png",
+        "img/plane2.png",
+        "img/plane3.png",
+        "img/plane4.png",
+        "img/enemy.png",
+        ];
+        if(assetsToLoader.length > 0){
+            this.loader = new PIXI.AssetLoader(assetsToLoader);
+            this.initLoad();
+        }else{
+            this.onAssetsLoaded();
+        }
+    },
+    onProgress:function(){
+
+    },
+    onAssetsLoaded:function()
+    {
+        this.screenManager.change(APP.firstScreen);
+    },
+    update:function()
+    {
+    }
+});
+
+/*jshint undef:false */
 var MobileController = AbstractScreen.extend({
     init: function (label) {
         this._super(label);
         this.gameContainer = new PIXI.DisplayObjectContainer();
+
+        this.statsLabel = new PIXI.Text("COUNTER:"+APP.counter+"\nKILLS:"+APP.kills+"\nESCAPES:"+APP.escapes+"\nERRORS:"+APP.miss, {font:"20px arial", fill:"white"});
+        this.statsLabel.position.y = windowHeight * 0.05
+        this.statsLabel.position.x = windowHeight * 0.05
+        this.gameContainer.addChild(this.statsLabel);
+
+        APP.counter = APP.maxEnemies
         
     },
     destroy: function () {
@@ -440,32 +696,44 @@ var MobileController = AbstractScreen.extend({
         //alert(APP.colorList[APP.currentTeam]);
     	var self = this;
 
-    	this.middleSquare = new PIXI.Graphics();
-        this.middleSquare.beginFill(APP.colorList[APP.currentTeam]);
-        this.middleSquare.drawCircle(0,0, 90);
+        this.interactiveBackground = new InteractiveBackground();
+        this.interactiveBackground.build(windowWidth, windowHeight);
+        this.container.addChild(this.interactiveBackground.container);
+
+    	this.middleSquare = new SimpleSprite("img/plane"+(APP.currentTeam + 1)+".png");
 
         //alert('=1');
-		
+		this.middleSquare.getContent().anchor = {x:0.5,y:0.5};
 		//this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2};
-		this.middleSquare.position.x = windowWidth / 2;
-		this.middleSquare.position.y = windowHeight / 2;
+		this.middleSquare.getContent().position.x = windowWidth / 2// - this.middleSquare.getContent().width / 2;
+		this.middleSquare.getContent().position.y = windowHeight / 2// - this.middleSquare.getContent().height / 2;
         //alert('=2');
-		this.gameContainer.addChild(this.middleSquare);
+		this.gameContainer.addChild(this.middleSquare.getContent());
 
         //alert('=3');
-        this.middleSquare.interactive = true;
-        this.middleSquare.touchstart = this.middleSquare.mousedown = function(mouseData){
+        this.middleSquare.getContent().interactive = true;
+        this.middleSquare.getContent().touchstart = this.middleSquare.getContent().mousedown = function(mouseData){
             self.jump();
         };
         //alert('=4');
 
         this.addChild(this.gameContainer)
 
+        TweenLite.from(this.middleSquare.getContent().position, 1, {ease:"easeOutBack", y:windowHeight});
         //alert('=5');
 
     },
 
     jump: function () {
+
+        this.middleSquare.getContent().scale = {x:1, y:1}
+
+        TweenLite.from(this.middleSquare.getContent().scale, 1, {x:1.2, y:1.2});
+        if(APP.endGame){
+            APP.endGame = false;
+            APP.kills = APP.escapes = APP.miss = 0
+            APP.counter = APP.maxEnemies
+        }
     	APP.socket.updateObj({
             timeStamp:Firebase.ServerValue.TIMESTAMP,
             action:
@@ -477,6 +745,14 @@ var MobileController = AbstractScreen.extend({
         });
     },
     update: function () {
+        this.interactiveBackground.update();
+
+        this.statsLabel.setText("COUNTER:"+APP.counter+"\nKILLS:"+APP.kills+"\nESCAPES:"+APP.escapes+"\nERRORS:"+APP.miss);
+
+        if(APP.endGame){
+            this.statsLabel.setText("END GAME\nKILLS:"+APP.kills+"\nESCAPES:"+APP.escapes+"\nERRORS:"+APP.miss);
+            this.updateable = false;
+        }
     }
 })
 /*jshint undef:false */
@@ -484,13 +760,13 @@ var MobileLobby = AbstractScreen.extend({
     init: function (label) {
         this._super(label);
         this.gameContainer = new PIXI.DisplayObjectContainer();
-        this.topGame = new GameView();
-        this.rightGame = new GameView();
-        this.bottomGame = new GameView();
-        this.leftGame = new GameView();
-        
-        this.gameViewList = [this.topGame,this.rightGame,this.bottomGame,this.leftGame]
-        
+        this.topGame = new SimpleSprite("img/plane1.png");
+        this.rightGame = new SimpleSprite("img/plane2.png");
+        this.bottomGame = new SimpleSprite("img/plane3.png");
+        this.leftGame = new SimpleSprite("img/plane4.png");
+
+        this.planes = [this.topGame,this.rightGame,this.bottomGame,this.leftGame];
+        this.block = false;
     },
     destroy: function () {
         this._super();
@@ -499,54 +775,75 @@ var MobileLobby = AbstractScreen.extend({
 
     	var self = this;
 
+        this.interactiveBackground = new InteractiveBackground();
+        this.interactiveBackground.build(windowWidth, windowHeight);
+        this.container.addChild(this.interactiveBackground.container);
+
         this.addChild(this.gameContainer);
 
-        this.topGame.build(APP.colorList[0]);
-        this.gameContainer.addChild(this.topGame.container);
-        this.topGame.container.position.x = windowWidth / 2;
-        this.topGame.container.position.y = windowHeight / 2;
+        
+        this.gameContainer.addChild(this.topGame.getContent());
 
-		this.topGame.container.interactive = true;
-        this.topGame.container.touchstart = this.topGame.container.mousedown = function(mouseData){
+        ratio = (windowWidth * 0.2) / this.topGame.getContent().width ;
+
+        this.topGame.getContent().position.x = windowWidth * 0.25 * 0//windowWidth / 2 - this.topGame.getContent().width /2;
+        this.topGame.getContent().position.y = windowHeight / 2;
+        this.topGame.getContent().scale = {x:ratio,y:ratio}
+
+
+		this.topGame.getContent().interactive = true;
+        this.topGame.getContent().touchstart = this.topGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
             self.choiceTeam(0);
         };
 
 
 
-        this.rightGame.build(APP.colorList[1]);
-        this.gameContainer.addChild(this.rightGame.container);
-        this.rightGame.container.position.x = windowWidth / 2;
-        this.rightGame.container.position.y = windowHeight / 2;
-        this.rightGame.container.rotation = degressToRad(90);
+        
+        this.gameContainer.addChild(this.rightGame.getContent());
+        this.rightGame.getContent().position.x = windowWidth * 0.25 * 1;
+        this.rightGame.getContent().position.y = windowHeight / 2;
+        this.rightGame.getContent().scale = {x:ratio,y:ratio}
 
-        this.rightGame.container.interactive = true;
-        this.rightGame.container.touchstart = this.rightGame.container.mousedown = function(mouseData){
+        this.rightGame.getContent().interactive = true;
+        this.rightGame.getContent().touchstart = this.rightGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
             self.choiceTeam(1);
         };
 
 
 
-        this.bottomGame.build(APP.colorList[2]);
-        this.gameContainer.addChild(this.bottomGame.container);
-        this.bottomGame.container.position.x = windowWidth / 2;
-        this.bottomGame.container.position.y = windowHeight / 2;
-        this.bottomGame.container.rotation = degressToRad(180);
+        
+        this.gameContainer.addChild(this.bottomGame.getContent());
+        this.bottomGame.getContent().position.x = windowWidth * 0.25 * 2;
+        this.bottomGame.getContent().position.y = windowHeight / 2;
+        this.bottomGame.getContent().scale = {x:ratio,y:ratio}
 
-        this.bottomGame.container.interactive = true;
-        this.bottomGame.container.touchstart = this.bottomGame.container.mousedown = function(mouseData){
+        this.bottomGame.getContent().interactive = true;
+        this.bottomGame.getContent().touchstart = this.bottomGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
            self.choiceTeam(2);
         };
 
 
 
-        this.leftGame.build(APP.colorList[3]);
-        this.gameContainer.addChild(this.leftGame.container);
-        this.leftGame.container.position.x = windowWidth / 2;
-        this.leftGame.container.position.y = windowHeight / 2;
-        this.leftGame.container.rotation = degressToRad(270);
+        
+        this.gameContainer.addChild(this.leftGame.getContent());
+        this.leftGame.getContent().position.x = windowWidth * 0.25 * 3;
+        this.leftGame.getContent().position.y = windowHeight / 2;
+        this.leftGame.getContent().scale = {x:ratio,y:ratio}
 
-        this.leftGame.container.interactive = true;
-        this.leftGame.container.touchstart = this.leftGame.container.mousedown = function(mouseData){
+        this.leftGame.getContent().interactive = true;
+        this.leftGame.getContent().touchstart = this.leftGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
             self.choiceTeam(3);
         };
 
@@ -554,18 +851,30 @@ var MobileLobby = AbstractScreen.extend({
 
     choiceTeam: function (id) {
     	APP.currentTeam = id;
-    	APP.socket.updateObj({
-            timeStamp:Firebase.ServerValue.TIMESTAMP,
-            action:
-            {
-                message: {team:id, value:"TE AMO "},
-                type:"NEW_USER",
-                id: APP.id
+    	var self = this;
+        this.block = true;
+        
+        TweenLite.to(this.planes[id].getContent().position, 1, {ease:"easeInCubic", y : - 100, onComplete:function(){
+            APP.socket.updateObj({
+                timeStamp:Firebase.ServerValue.TIMESTAMP,
+                action:
+                {
+                    message: {team:id, value:"TE AMO "},
+                    type:"NEW_USER",
+                    id: APP.id
+                }
+            });
+            self.screenManager.change('MobileController');
+        }});
+
+        for (var i = this.planes.length - 1; i >= 0; i--) {
+            if(id != i){
+                TweenLite.to(this.planes[i].getContent().position, 0.8, {ease:"easeInCubic", y : windowHeight + 50});
             }
-        });
-        this.screenManager.change('MobileController');
+        };
     },
     update: function () {
+        this.interactiveBackground.update();
     }
 })
 /*jshint undef:false */
@@ -618,6 +927,204 @@ var FirebaseSocket = SmartSocket.extend({
     destroy:function(){
     }
 });
+/*jshint undef:false */
+var Bullet = Entity.extend({
+    init:function(vel, range, color, entityLayer, teamID){
+        // console.log(vel);
+        this._super( true );
+        this.entityLayer = entityLayer;
+        this.color = color;
+        this.updateable = false;
+        this.deading = false;
+        this.range =range;
+        this.teamID = teamID;
+        this.width = 1;
+        this.height = 1;
+        this.type = 'fire';
+        this.node = null;
+        this.velocity.x = vel.x;
+        this.velocity.y = vel.y;
+        this.timeLive = 100;
+        this.defaultVelocity = 1;
+        this.entityContainer = new PIXI.DisplayObjectContainer();
+        this.hitContainer = new PIXI.DisplayObjectContainer();
+        this.entityContainer.addChild(this.hitContainer);
+
+        this.collidable = true;
+
+    },
+    debugPolygon: function(color, force){
+        this.debugPolygon = new PIXI.Graphics();
+        // this.debugPolygon.lineStyle(0.5,color);
+        this.debugPolygon.beginFill(color);
+        this.debugPolygon.moveTo(0,0);
+        this.debugPolygon.lineTo(-this.range,this.range*2)
+        this.debugPolygon.lineTo(this.range,this.range*2)
+        // this.debugPolygon.drawCircle(0,0,this.range);
+        // this.debugPolygon.alpha = 0;
+        this.hitContainer.addChild(this.debugPolygon);
+    },
+    getContent:function(){
+        return this.entityContainer;
+    },
+    build: function(){
+        // this._super();
+        this.centerPosition = {x:0, y:0};
+        this.updateable = true;
+        this.collidable = true;
+        // var self = this;
+        this.debugPolygon(this.color);
+    },
+    update: function(){
+        this._super();
+        this.timeLive --;
+        this.entityLayer.collideChilds(this);
+        if(this.getContent().position.y < -windowHeight / 1.8){
+            this.preKill();
+             APP.socket.updateObj({
+                timeStamp:Firebase.ServerValue.TIMESTAMP,
+                action:
+                {
+                    message: {team:this.teamID},
+                    type:"MISS",
+                }
+            });
+        }
+        // if(this.timeLive <= 0){
+        //     this.preKill();
+        // }
+    },
+    collide:function(arrayCollide){
+        // console.log('fireCollide', arrayCollide[0].type);
+        // if(this.collidable){
+        //     if(arrayCollide[0].type === 'enemy'){
+        //         // this.getContent().tint = 0xff0000;
+        //         this.preKill();
+        //         arrayCollide[0].hurt(this.power);
+
+        //     }
+        // }
+    },
+    preKill:function(){
+        //this._super();
+        if(this.collidable){
+            var self = this;
+            this.updateable = false;
+            this.collidable = false;
+            TweenLite.to(this.getContent().scale, 0.3, {x:0.2, y:0.2, onComplete:function(){self.kill = true;}});
+        }
+    },
+});
+
+/*jshint undef:false */
+var Enemy = Entity.extend({
+    init:function(vel, range, color, entityLayer, teamID){
+        // console.log(vel);
+        this._super( true );
+        this.entityLayer = entityLayer;
+        this.color = color;
+        this.updateable = false;
+        this.deading = false;
+        this.range =range;
+        this.teamID = teamID;
+        this.width = 1;
+        this.height = 1;
+        this.type = 'fire';
+        this.node = null;
+        this.velocity.x = vel.x;
+        this.velocity.y = vel.y;
+        this.timeLive = 1000;
+        this.defaultVelocity = 1;
+        this.entityContainer = new PIXI.DisplayObjectContainer();
+        this.hitContainer = new PIXI.DisplayObjectContainer();
+        this.entityContainer.addChild(this.hitContainer);
+
+        this.collidable = true;
+
+    },
+    debugPolygon: function(color, force){
+        this.debugPolygon = new PIXI.Graphics();
+
+        this.img = new SimpleSprite("img/enemy.png");
+        this.img.getContent().anchor = {x:0.5,y:0.5}
+        this.debugPolygon.lineStyle(0.5,color);
+        // this.debugPolygon.beginFill(color);
+        // this.debugPolygon.moveTo(0,0);
+        // this.debugPolygon.lineTo(-this.range,this.range*2)
+        // this.debugPolygon.lineTo(this.range,this.range*2)
+        // this.debugPolygon.drawCircle(0,0,this.range);
+        // this.debugPolygon.alpha = 0;
+        this.hitContainer.addChild(this.debugPolygon);
+        this.hitContainer.addChild(this.img.getContent());
+    },
+    getContent:function(){
+        return this.entityContainer;
+    },
+    build: function(){
+        // this._super();
+        this.centerPosition = {x:0, y:0};
+        this.updateable = true;
+        this.collidable = true;
+        // var self = this;
+        this.debugPolygon(this.color);
+    },
+    update: function(){
+        this._super();
+        if(!this.updateable) return
+        this.timeLive --;
+        this.entityLayer.collideChilds(this);
+        if(this.getContent().position.x < -windowHeight / 2){
+            console.log(this.teamID)
+             APP.velEnemy -= 0.1;
+            if(APP.velEnemy < 1.5)
+                APP.velEnemy = 1.5
+            APP.enemyCounter++
+            APP.socket.updateObj({
+                timeStamp:Firebase.ServerValue.TIMESTAMP,
+                action:
+                {
+                    message: {team:this.teamID},
+                    type:"NEW_ESCAPE",
+                }
+            });
+            this.kill = true;
+            this.updateable = false;
+        }
+        if(this.timeLive <= 0){
+            this.preKill();
+        }
+    },
+    collide:function(arrayCollide){
+        if(this.collidable){
+             APP.velEnemy += 0.1;
+            if(APP.velEnemy > 4.5)
+                APP.velEnemy = 4.5
+            APP.enemyCounter++
+            APP.socket.updateObj({
+                timeStamp:Firebase.ServerValue.TIMESTAMP,
+                action:
+                {
+                    message: {team:this.teamID},
+                    type:"NEW_KILL",
+                }
+            });
+            this.preKill();
+            arrayCollide[0].preKill();
+        }
+    },
+    preKill:function(){
+        //this._super();
+        if(this.collidable){
+           
+            var self = this;
+            this.updateable = false;
+            this.collidable = false;
+            TweenLite.to(this.getContent().scale, 0.3, {x:1.2, y:1.2, onComplete:function(){self.kill = true;}});
+            TweenLite.to(this.getContent(), 0.3, {alpha:0});
+        }
+    },
+});
+
 /*jshint undef:false */
 
 isMobile = false;

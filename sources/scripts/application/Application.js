@@ -3,13 +3,13 @@ var Application = AbstractApplication.extend({
 	init:function(firebaseURL){
         this._super(windowWidth, windowHeight);
         this.stage.setBackgroundColor(0xffffff);
-        //this.stage.removeChild(this.loadText);
+        this.stage.removeChild(this.loadText);
 
 
 
-        this.loadText = new PIXI.Text("label", {font:"50px arial", fill:"black"});
+        // this.loadText = new PIXI.Text("label", {font:"50px arial", fill:"black"});
     
-        this.stage.addChild(this.loadText);
+        // this.stage.addChild(this.loadText);
 
 
 
@@ -33,9 +33,14 @@ var Application = AbstractApplication.extend({
         this.counter = 0;
 
 
-        this.colorList = [0xFF0000, 0x00FF00,0x0000FF,0xFFFFFF]
+        this.colorList = [ 0x0000FF, 0xFF0000, 0x00FF00,0xFFFFFF]
 
         this.teams = "";
+        this.kills = 0
+        this.escapes = 0
+        this.miss = 0
+
+        this.maxEnemies = 20;
 
 	},
     deviceLeft:function(){
@@ -124,6 +129,45 @@ var Application = AbstractApplication.extend({
         //console.log(obj.action.type);
 
         switch(obj.action.type) {
+            // case "RESET":
+            //     // if(isMobile && obj.action.message.team == APP.currentTeam)
+            //     //     APP.miss ++;
+            //         //console.log(APP.getUser(obj.action.id).team);
+            //         //init users
+            //         //APP.gameScreen.initTeam(obj.action.message.team);
+            //     break;
+            case "MISS":
+                if(isMobile && obj.action.message.team == APP.currentTeam)
+                    APP.miss ++;
+                    //console.log(APP.getUser(obj.action.id).team);
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "END_GAME":
+                if(isMobile)
+                    APP.endGame = true;
+                    //console.log(APP.getUser(obj.action.id).team);
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "NEW_KILL":
+                if(isMobile && obj.action.message.team == APP.currentTeam){
+                    APP.kills ++;
+                    APP.counter --
+                }
+                    //console.log(APP.getUser(obj.action.id).team);
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
+            case "NEW_ESCAPE":
+                    //console.log(APP.getUser(obj.action.id).team);
+                if(isMobile && obj.action.message.team == APP.currentTeam){
+                    APP.escapes ++;
+                    APP.counter --
+                }
+                    //init users
+                    //APP.gameScreen.initTeam(obj.action.message.team);
+                break;
             case "JUMP":
                     //console.log(APP.getUser(obj.action.id).team);
                     APP.gameScreen.jump(APP.getUser(obj.action.id).team);
@@ -175,11 +219,15 @@ var Application = AbstractApplication.extend({
             this.startedTime = this.stepTime = Firebase.ServerValue.TIMESTAMP;
 
             this.stage.setBackgroundColor(0x000000);
+            APP.firstScreen = 'MobileLobby';
+
             this.mobileLobby = new MobileLobby('MobileLobby');
             this.mobileController = new MobileController('MobileController');
+            this.loaderScreen = new LoaderScreen('Loader');
             this.screenManager.addScreen(this.mobileLobby);
             this.screenManager.addScreen(this.mobileController);
-            this.screenManager.change('MobileLobby');
+            this.screenManager.addScreen(this.loaderScreen);
+            this.screenManager.change('Loader');
 
         }else{
             this.startedTime = this.stepTime = Firebase.ServerValue.TIMESTAMP;
@@ -189,12 +237,15 @@ var Application = AbstractApplication.extend({
                 stepTime:this.stepTime},
                 timeStamp:Firebase.ServerValue.TIMESTAMP
             });
+            APP.firstScreen = 'Game';
 
             this.stage.setBackgroundColor(0x000000);
             this.gameScreen = new GameScreen('Game');
+            this.loaderScreen = new LoaderScreen('Loader');
             this.screenManager.addScreen(this.gameScreen);
+            this.screenManager.addScreen(this.loaderScreen);
 
-            this.screenManager.change('Game');
+            this.screenManager.change('Loader');
         }
 	},
     destroy:function(){

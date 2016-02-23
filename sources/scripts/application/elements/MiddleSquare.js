@@ -7,7 +7,7 @@ var MiddleSquare = Class.extend({
     build: function(size){
 
 		this.middleSquare = new PIXI.Graphics();
-    	this.middleSquare.lineStyle(1,0xff00ff);
+    	this.middleSquare.lineStyle(0.5,0x555555);
         this.middleSquare.drawRect(0,0,size.width,size.height);
 		
 		this.middleSquare.pivot = {x:  this.middleSquare.width /2,y:  this.middleSquare.height /2};

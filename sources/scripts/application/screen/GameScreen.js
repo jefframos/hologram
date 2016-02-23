@@ -23,25 +23,25 @@ var GameScreen = AbstractScreen.extend({
 
         this.addChild(this.gameContainer);
 
-        this.topGame.build(APP.colorList[0]);
+        this.topGame.build(0);
         this.gameContainer.addChild(this.topGame.container);
         this.topGame.container.position.x = windowWidth / 2;
         this.topGame.container.position.y = windowHeight / 2;
         // this.topGame.container.interactive = true;
 
-        this.rightGame.build(APP.colorList[1]);
+        this.rightGame.build(1);
         this.gameContainer.addChild(this.rightGame.container);
         this.rightGame.container.position.x = windowWidth / 2;
         this.rightGame.container.position.y = windowHeight / 2;
         this.rightGame.container.rotation = degressToRad(90);
 
-        this.bottomGame.build(APP.colorList[2]);
+        this.bottomGame.build(2);
         this.gameContainer.addChild(this.bottomGame.container);
         this.bottomGame.container.position.x = windowWidth / 2;
         this.bottomGame.container.position.y = windowHeight / 2;
         this.bottomGame.container.rotation = degressToRad(180);
 
-        this.leftGame.build(APP.colorList[3]);
+        this.leftGame.build(3);
         this.gameContainer.addChild(this.leftGame.container);
         this.leftGame.container.position.x = windowWidth / 2;
         this.leftGame.container.position.y = windowHeight / 2;
@@ -57,7 +57,7 @@ var GameScreen = AbstractScreen.extend({
 
 
     	this.crossLine1 = new PIXI.Graphics();
-        this.crossLine1.lineStyle(1,0xff00ff);
+        this.crossLine1.lineStyle(0.5,0x555555);
         this.crossLine1.moveTo(0,0);
         this.crossLine1.lineTo(0,windowHeight * 2);
         this.crossLine1.position.x = windowWidth / 2;
@@ -67,7 +67,7 @@ var GameScreen = AbstractScreen.extend({
 
 
         this.crossLine2 = new PIXI.Graphics();
-        this.crossLine2.lineStyle(1,0xff00ff);
+        this.crossLine2.lineStyle(0.5,0x555555);
         this.crossLine2.moveTo(0,0);
         this.crossLine2.lineTo(0,windowHeight * 2);
         this.crossLine2.position.x = windowWidth / 2;
@@ -79,6 +79,7 @@ var GameScreen = AbstractScreen.extend({
         this.gameContainer.addChild(this.crossLine1);
         this.gameContainer.addChild(this.crossLine2);
 
+        
     },
     jump: function (id) {
         this.gameViewList[id].jump();

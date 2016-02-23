@@ -3,13 +3,13 @@ var MobileLobby = AbstractScreen.extend({
     init: function (label) {
         this._super(label);
         this.gameContainer = new PIXI.DisplayObjectContainer();
-        this.topGame = new GameView();
-        this.rightGame = new GameView();
-        this.bottomGame = new GameView();
-        this.leftGame = new GameView();
-        
-        this.gameViewList = [this.topGame,this.rightGame,this.bottomGame,this.leftGame]
-        
+        this.topGame = new SimpleSprite("img/plane1.png");
+        this.rightGame = new SimpleSprite("img/plane2.png");
+        this.bottomGame = new SimpleSprite("img/plane3.png");
+        this.leftGame = new SimpleSprite("img/plane4.png");
+
+        this.planes = [this.topGame,this.rightGame,this.bottomGame,this.leftGame];
+        this.block = false;
     },
     destroy: function () {
         this._super();
@@ -18,54 +18,75 @@ var MobileLobby = AbstractScreen.extend({
 
     	var self = this;
 
+        this.interactiveBackground = new InteractiveBackground();
+        this.interactiveBackground.build(windowWidth, windowHeight);
+        this.container.addChild(this.interactiveBackground.container);
+
         this.addChild(this.gameContainer);
 
-        this.topGame.build(APP.colorList[0]);
-        this.gameContainer.addChild(this.topGame.container);
-        this.topGame.container.position.x = windowWidth / 2;
-        this.topGame.container.position.y = windowHeight / 2;
+        
+        this.gameContainer.addChild(this.topGame.getContent());
 
-		this.topGame.container.interactive = true;
-        this.topGame.container.touchstart = this.topGame.container.mousedown = function(mouseData){
+        ratio = (windowWidth * 0.2) / this.topGame.getContent().width ;
+
+        this.topGame.getContent().position.x = windowWidth * 0.25 * 0//windowWidth / 2 - this.topGame.getContent().width /2;
+        this.topGame.getContent().position.y = windowHeight / 2;
+        this.topGame.getContent().scale = {x:ratio,y:ratio}
+
+
+		this.topGame.getContent().interactive = true;
+        this.topGame.getContent().touchstart = this.topGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
             self.choiceTeam(0);
         };
 
 
 
-        this.rightGame.build(APP.colorList[1]);
-        this.gameContainer.addChild(this.rightGame.container);
-        this.rightGame.container.position.x = windowWidth / 2;
-        this.rightGame.container.position.y = windowHeight / 2;
-        this.rightGame.container.rotation = degressToRad(90);
+        
+        this.gameContainer.addChild(this.rightGame.getContent());
+        this.rightGame.getContent().position.x = windowWidth * 0.25 * 1;
+        this.rightGame.getContent().position.y = windowHeight / 2;
+        this.rightGame.getContent().scale = {x:ratio,y:ratio}
 
-        this.rightGame.container.interactive = true;
-        this.rightGame.container.touchstart = this.rightGame.container.mousedown = function(mouseData){
+        this.rightGame.getContent().interactive = true;
+        this.rightGame.getContent().touchstart = this.rightGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
             self.choiceTeam(1);
         };
 
 
 
-        this.bottomGame.build(APP.colorList[2]);
-        this.gameContainer.addChild(this.bottomGame.container);
-        this.bottomGame.container.position.x = windowWidth / 2;
-        this.bottomGame.container.position.y = windowHeight / 2;
-        this.bottomGame.container.rotation = degressToRad(180);
+        
+        this.gameContainer.addChild(this.bottomGame.getContent());
+        this.bottomGame.getContent().position.x = windowWidth * 0.25 * 2;
+        this.bottomGame.getContent().position.y = windowHeight / 2;
+        this.bottomGame.getContent().scale = {x:ratio,y:ratio}
 
-        this.bottomGame.container.interactive = true;
-        this.bottomGame.container.touchstart = this.bottomGame.container.mousedown = function(mouseData){
+        this.bottomGame.getContent().interactive = true;
+        this.bottomGame.getContent().touchstart = this.bottomGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
            self.choiceTeam(2);
         };
 
 
 
-        this.leftGame.build(APP.colorList[3]);
-        this.gameContainer.addChild(this.leftGame.container);
-        this.leftGame.container.position.x = windowWidth / 2;
-        this.leftGame.container.position.y = windowHeight / 2;
-        this.leftGame.container.rotation = degressToRad(270);
+        
+        this.gameContainer.addChild(this.leftGame.getContent());
+        this.leftGame.getContent().position.x = windowWidth * 0.25 * 3;
+        this.leftGame.getContent().position.y = windowHeight / 2;
+        this.leftGame.getContent().scale = {x:ratio,y:ratio}
 
-        this.leftGame.container.interactive = true;
-        this.leftGame.container.touchstart = this.leftGame.container.mousedown = function(mouseData){
+        this.leftGame.getContent().interactive = true;
+        this.leftGame.getContent().touchstart = this.leftGame.getContent().mousedown = function(mouseData){
+            if(self.block){
+                return;
+            }
             self.choiceTeam(3);
         };
 
@@ -73,17 +94,29 @@ var MobileLobby = AbstractScreen.extend({
 
     choiceTeam: function (id) {
     	APP.currentTeam = id;
-    	APP.socket.updateObj({
-            timeStamp:Firebase.ServerValue.TIMESTAMP,
-            action:
-            {
-                message: {team:id, value:"TE AMO "},
-                type:"NEW_USER",
-                id: APP.id
+    	var self = this;
+        this.block = true;
+        
+        TweenLite.to(this.planes[id].getContent().position, 1, {ease:"easeInCubic", y : - 100, onComplete:function(){
+            APP.socket.updateObj({
+                timeStamp:Firebase.ServerValue.TIMESTAMP,
+                action:
+                {
+                    message: {team:id, value:"TE AMO "},
+                    type:"NEW_USER",
+                    id: APP.id
+                }
+            });
+            self.screenManager.change('MobileController');
+        }});
+
+        for (var i = this.planes.length - 1; i >= 0; i--) {
+            if(id != i){
+                TweenLite.to(this.planes[i].getContent().position, 0.8, {ease:"easeInCubic", y : windowHeight + 50});
             }
-        });
-        this.screenManager.change('MobileController');
+        };
     },
     update: function () {
+        this.interactiveBackground.update();
     }
 })
